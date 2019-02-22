@@ -1,6 +1,7 @@
 # Disaster_Response_Project
 
-1. ETL pipline 
+1. ETL pipline
 
 Read the dataset, clean the data, and then store it in a SQLite database.
 
+- python package: pandas, json, BeautifulSoup, sqlite3
