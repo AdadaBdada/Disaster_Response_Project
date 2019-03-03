@@ -1,16 +1,36 @@
 import sys
+import pandas as pd
+from sqlalchemy import create_engine
 
 
 def load_data(messages_filepath, categories_filepath):
-    pass
+    messages = pd.read_csv('disaster_messages.csv')
+    categories = pd.read_csv('disaster_categories.csv')
+    df = messages.merge(categories, on='id')
 
+    return df
 
 def clean_data(df):
-    pass
 
+    cat = df['categories'].str.split(';',expand= True)
+    row = cat.iloc[0]
+    category_colnames = list(row.apply(lambda x : x[:-2]))
+    cat.columns = category_colnames
+
+    for column in cat:
+        cat[column] = cat[column].apply(lambda x : x[-1])
+        cat[column] = cat[column].astype(int)
+
+    df.drop(['categories'],axis=1)
+    df = pd.concat([df,cat],axis=1)
+
+    df.drop_duplicates(inplace=True)
+
+    return df
 
 def save_data(df, database_filename):
-    pass  
+    engine = create_engine('sqlite:///{}.db'.format(database_filename))
+    df.to_sql('{}'.format(database_filename), engine, index=False)
 
 
 def main():
@@ -24,12 +44,12 @@ def main():
 
         print('Cleaning data...')
         df = clean_data(df)
-        
+
         print('Saving data...\n    DATABASE: {}'.format(database_filepath))
         save_data(df, database_filepath)
-        
+
         print('Cleaned data saved to database!')
-    
+
     else:
         print('Please provide the filepaths of the messages and categories '\
               'datasets as the first and second argument respectively, as '\
