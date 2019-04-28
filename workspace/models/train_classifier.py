@@ -1,10 +1,15 @@
-import nltk
-nltk.download(['punkt','stopwords','wordnet'])
-
+import sys
 import re
+import pickle
 import pandas as pd
-
+import numpy as np
 from sqlalchemy import create_engine
+
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem.wordnet import WordNetLemmatizer
@@ -17,6 +22,7 @@ from sklearn.metrics import classification_report
 
 from sklearn.pipeline import Pipeline
 from sklearn.externals import joblib
+from sklearn.grid_search import GridSearchCV
 
 
 def load_data(database_filepath):
@@ -24,15 +30,14 @@ def load_data(database_filepath):
     df = pd.read_sql_table(engine.table_names()[0],con=engine)
     X = df.message
     y = df.iloc[:,5:]
-    category_names = list(df.columns[5:])
+    category_names = df.columns[5:]
     for col in y.columns:
-        y.loc[y[col]>1 col] = 1
-
+        y.loc[y[col]>1,col] = 1
+        
     return X, y, category_names
 
 
 def tokenize(text):
-
     # normalize
     text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
     # tokenize sentence
@@ -51,7 +56,7 @@ def build_model():
     ])
 
     parameters = {'vect__ngram_range':[(1,2),(2,2)],
-                  'clf__estimator__n_estimators':[10, 30, 50]}
+                  'clf__estimator__n_estimators':[3, 5]}
 
     cv = GridSearchCV(estimator = pipeline, param_grid=parameters)
 
@@ -59,15 +64,19 @@ def build_model():
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    y_pred = model.predict(X_test)
-    for col in enumerate(category_names):
-        print('Label: {}'.format(col))
-        print('------------------------------------------------------')
-        print(classification_report(Y_test[col], y_pred[col]))
+        
+    y_preds = model.predict(X_test)
+    # print classification report
+    print(classification_report(y_preds, Y_test.values, target_names=category_names))
+    # print raw accuracy score 
+    print('Accuracy Score: {}'.format(np.mean(Y_test.values == y_preds)))
 
 
 def save_model(model, model_filepath):
-    joblib.dum(model, model_filepath)
+    
+    filename = model_filepath
+    pickle.dump(model, open(filename, 'wb'))
+    pass
 
 
 def main():
@@ -76,13 +85,13 @@ def main():
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-
+        
         print('Building model...')
         model = build_model()
-
+        
         print('Training model...')
         model.fit(X_train, Y_train)
-
+        
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
 
@@ -99,4 +108,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main() 
